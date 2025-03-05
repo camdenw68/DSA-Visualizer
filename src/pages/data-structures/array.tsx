@@ -2,100 +2,168 @@
 
 import type React from "react"
 import { useState, useEffect } from "react"
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter"
+import { vscDarkPlus } from "react-syntax-highlighter/dist/esm/styles/prism"
+import { motion, AnimatePresence } from "framer-motion"
+import { div } from "framer-motion/client"
 
-interface ArrayItem {
-  value: number
-  key: number
-  isNew: boolean
+interface ArrayPageProps {
+  darkMode: boolean
 }
 
-const ArraysPage: React.FC = () => {
-  const [array, setArray] = useState<ArrayItem[]>([
-    { value: 5, key: 1, isNew: false },
-    { value: 2, key: 2, isNew: false },
-    { value: 8, key: 3, isNew: false },
-    { value: 1, key: 4, isNew: false },
-    { value: 9, key: 5, isNew: false },
-  ])
-  const [inputValue, setInputValue] = useState("")
-  const [searchValue, setSearchValue] = useState("")
+interface ArrayVisualizationProps {
+  operation: string | null
+  codeExample: string
+}
+
+const ArrayVisualization: React.FC<ArrayVisualizationProps> = ({ operation, codeExample }) => {
+  const [array, setArray] = useState([1, 2, 3, 4, 5])
   const [highlightIndex, setHighlightIndex] = useState<number | null>(null)
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setArray(array.map((item) => ({ ...item, isNew: false })))
-    }, 500)
-    return () => clearTimeout(timer)
-  }, [array])
-
-  const handleAdd = () => {
-    const newValue = Number.parseInt(inputValue)
-    if (!isNaN(newValue)) {
-      setArray([...array, { value: newValue, key: Date.now(), isNew: true }])
-      setInputValue("")
+    if (operation) {
+      performOperation(operation)
     }
-  }
+  }, [operation])
 
-  const handleRemove = () => {
-    if (array.length > 0) {
-      setArray(array.slice(0, -1))
-    }
-  }
-
-  const handleSearch = () => {
-    const searchNum = Number.parseInt(searchValue)
-    if (!isNaN(searchNum)) {
-      const index = array.findIndex((item) => item.value === searchNum)
-      setHighlightIndex(index)
-      setTimeout(() => setHighlightIndex(null), 2000)
+  const performOperation = (op: string) => {
+    switch (op) {
+      case "Access":
+        const randomIndex = Math.floor(Math.random() * array.length)
+        setHighlightIndex(randomIndex)
+        setTimeout(() => setHighlightIndex(null), 1500)
+        break
+      case "Insert":
+        const newValue = Math.floor(Math.random() * 100) + 1
+        const insertIndex = Math.floor(Math.random() * (array.length + 1))
+        setArray([...array.slice(0, insertIndex), newValue, ...array.slice(insertIndex)])
+        setHighlightIndex(insertIndex)
+        setTimeout(() => setHighlightIndex(null), 1500)
+        break
+      case "Remove":
+        if (array.length > 0) {
+          const removeIndex = Math.floor(Math.random() * array.length)
+          setHighlightIndex(removeIndex)
+          setTimeout(() => {
+            setArray(array.filter((_, i) => i !== removeIndex))
+            setHighlightIndex(null)
+          }, 1000)
+        }
+        break
+      case "Iterate":
+        let i = 0
+        const interval = setInterval(() => {
+          if (i < array.length) {
+            setHighlightIndex(i)
+            i++
+          } else {
+            clearInterval(interval)
+            setHighlightIndex(null)
+          }
+        }, 500)
+        break
+      case "Search":
+        const target = array[Math.floor(Math.random() * array.length)]
+        let j = 0
+        const searchInterval = setInterval(() => {
+          if (j < array.length) {
+            setHighlightIndex(j)
+            if (array[j] === target) {
+              clearInterval(searchInterval)
+              setTimeout(() => setHighlightIndex(null), 1000)
+            } else {
+              j++
+            }
+          } else {
+            clearInterval(searchInterval)
+            setHighlightIndex(null)
+          }
+        }, 500)
+        break
     }
   }
 
   return (
-    <div className="p-4">
-      <h2 className="text-2xl font-bold mb-4">Array Visualization</h2>
-      <div className="flex space-x-2 mb-4">
-        {array.map((item, index) => (
-          <div
-            key={item.key}
-            className={`w-12 h-12 flex items-center justify-center border-2 transition-all duration-300 ${
-              index === highlightIndex ? "border-yellow-500 bg-yellow-200" : "border-gray-300"
-            } ${item.isNew ? "scale-110" : "scale-100"}`}
+    <div className="flex-col items-center w-screen">
+    <div className="flex-col items-center w-full">
+      <div className=" flex-wrap gap-3 justify-center bg-gray-900 p-6 rounded-lg shadow-lg  h-full flex items-center w-2/4">
+        <AnimatePresence>
+          {array.map((value, index) => (
+            <motion.div
+              key={`${index}-${value}`}
+              initial={{ opacity: 0, scale: 0.5 }}
+              animate={{
+                opacity: 1,
+                scale: 1,
+                backgroundColor: highlightIndex === index ? "#fbbf24" : "#3b82f6",
+              }}
+              exit={{ opacity: 0, scale: 0.5 }}
+              className="w-16 h-16 flex items-center justify-center text-white text-lg font-bold rounded-lg shadow-md"
+            >
+              {value}
+            </motion.div>
+          ))}
+        </AnimatePresence>
+      </div>
+      {operation && (
+        <div className="mt-6 p-4 bg-gray-800 rounded-lg shadow-md w-full">
+          <SyntaxHighlighter language="python" style={vscDarkPlus} className="rounded-lg">
+            {codeExample}
+          </SyntaxHighlighter>
+        </div>
+      )}
+    </div>
+    </div>
+  )
+}
+
+const ArrayPage: React.FC<ArrayPageProps> = ({ darkMode }) => {
+  const [currentOperation, setCurrentOperation] = useState<string | null>(null)
+  const [codeExample, setCodeExample] = useState("")
+
+  const operations = [
+    { name: "Access", description: "Retrieve an element from an array using an index.", code: "my_array[2]" },
+    { name: "Insert", description: "Insert an element at a specific position in the array.", code: "my_array.insert(2, 10)" },
+    { name: "Remove", description: "Remove an element from the array by index.", code: "my_array.pop(2)" },
+    { name: "Iterate", description: "Loop through each element in the array.", code: "for element in my_array:\n    print(element)" },
+    { name: "Search", description: "Find an element in the array and return its index.", code: "my_array.index(target)" },
+  ]
+
+  const handleOperationClick = (op: { name: string; code: string }) => {
+    setCurrentOperation(op.name)
+    setCodeExample(op.code)
+  }
+
+  return (
+    <div className={`${darkMode ? "bg-gray-900 text-white" : "bg-white text-black"} w-full min-h-screen flex flex-col items-center p-8`}> 
+      <h2 className="text-4xl font-bold mb-6 text-center">Array Visualization</h2>
+      <ArrayVisualization operation={currentOperation} codeExample={codeExample} />
+      <div className="mt-6 flex flex-wrap gap-3 justify-center w-full max-w-5xl">
+        {operations.map((op) => (
+          <button
+            key={op.name}
+            onClick={() => handleOperationClick(op)}
+            className="px-5 py-2 text-lg font-semibold rounded-lg shadow-md transition-transform transform hover:scale-105 bg-blue-600 hover:bg-blue-700 text-white w-40"
           >
-            {item.value}
-          </div>
+            {op.name}
+          </button>
         ))}
       </div>
-      <div className="flex space-x-2 mb-4">
-        <input
-          type="number"
-          value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-          className="px-2 py-1 border rounded text-black"
-          placeholder="Enter a number"
-        />
-        <button onClick={handleAdd} className="px-4 py-2 bg-green-500 text-white rounded">
-          Add
-        </button>
-        <button onClick={handleRemove} className="px-4 py-2 bg-red-500 text-white rounded">
-          Remove
-        </button>
-      </div>
-      <div className="flex space-x-2">
-        <input
-          type="number"
-          value={searchValue}
-          onChange={(e) => setSearchValue(e.target.value)}
-          className="px-2 py-1 border rounded text-black"
-          placeholder="Search for a number"
-        />
-        <button onClick={handleSearch} className="px-4 py-2 bg-blue-500 text-white rounded">
-          Search
-        </button>
+      <div className="mt-12 w-full max-w-5xl">
+        <h3 className="text-3xl font-bold mb-4 text-center">Operation Summaries</h3>
+        {operations.map((op) => (
+          <div key={op.name} className="mb-6 p-6 bg-gray-700 text-white rounded-lg shadow-md border border-gray-600">
+            <h4 className="text-2xl font-bold mb-2">{op.name}</h4>
+            <p className="mb-2 text-lg">{op.description}</p>
+            <SyntaxHighlighter language="python" style={vscDarkPlus} className="rounded-lg">
+              {op.code}
+            </SyntaxHighlighter>
+          </div>
+        ))}
       </div>
     </div>
   )
 }
 
+export default ArrayPage
 
-export default ArraysPage
